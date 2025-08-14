@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Dict
 from monte_carlo import MonteCarloSimulator
+from range_forecast import range_forecast as rf_func
 
 app = FastAPI()
 
@@ -24,12 +25,10 @@ class SimulationRequest(BaseModel):
 
 @app.post("/simulate")
 async def simulate(request: SimulationRequest):
-    # Convert parameters to dict format
     def convert_param(param):
         if isinstance(param, list):
             return [p.dict() for p in param]
-        else:
-            return param.dict()
+        return param.dict()
     
     sim = MonteCarloSimulator(
         n_simulations=request.n_simulations,
@@ -42,6 +41,18 @@ async def simulate(request: SimulationRequest):
     )
     result = sim.run()
     return result
+
+# ---------- NEW REQUEST MODEL FOR RANGE FORECAST ----------
+class RangeForecastRequest(BaseModel):
+    base_peak: float
+    base_netsales: List[float]
+    summary: Dict[str, float]
+
+@app.post("/range_forecast")
+async def range_forecast(request: RangeForecastRequest):
+    range_forecasts = rf_func(request.base_peak, request.base_netsales, request.summary)
+    return range_forecasts
+
 
 
 
