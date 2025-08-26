@@ -1,0 +1,129 @@
+        {
+            "world_net_sales": 92392.27547177012,
+            "primary_markets": {
+                "USA": {
+                    "overall_net_sales": 37987.785389158256,
+                    "sku_splits": [
+                        0.65,
+                        0.35
+                    ],
+                    "skus": [
+                        {
+                            "gross_price": 213.57295587658547,
+                            "gtn": 0.18351739178681792,
+                            "net_sales": 26267.47701319877
+                        },
+                        {
+                            "gross_price": 185.1910940633493,
+                            "gtn": 0.2197404563484443,
+                            "net_sales": 11720.308375959487
+                        }
+                    ],
+                    "sampled_values": {
+                        "events": [
+                            {
+                                "input_params": {
+                                    "dist_type": "uniform",
+                                    "low": 0.05,
+                                    "high": 0.15,
+                                    "base": 0.1,
+                                    "mean": null,
+                                    "std": null
+                                },
+                                "sampled_value": 0.11517076787515337
+                            }
+                        ],
+                        "class_share": 0.23210366547151734,
+                        "product_share": 0.4974116201170785,
+                        "calculated_total_volume": 231.74576557458678
+                    }
+                },
+                "Canada": {
+                    "overall_net_sales": 8474.437209791555,
+                    "sku_splits": [
+                        0.65,
+                        0.35
+                    ],
+                    "skus": [
+                        {
+                            "gross_price": 198.5002700055921,
+                            "gtn": 0.21850747333338605,
+                            "net_sales": 5760.039447699194
+                        },
+                        {
+                            "gross_price": 178.3632258096329,
+                            "gtn": 0.2388435077362059,
+                            "net_sales": 2714.3977620923615
+                        }
+                    ],
+                    "sampled_values": {
+                        "events": [
+                            {
+                                "input_params": {
+                                    "dist_type": "triangular",
+                                    "low": 0.02,
+                                    "high": 0.06,
+                                    "base": 0.04,
+                                    "mean": null,
+                                    "std": null
+                                },
+                                "sampled_value": 0.04091209924284045
+                            },
+                            {
+                                "input_params": {
+                                    "dist_type": "beta_pert",
+                                    "low": 0.05,
+                                    "high": 0.08,
+                                    "base": 0.06,
+                                    "mean": null,
+                                    "std": null
+                                },
+                                "sampled_value": 0.054774961437665644
+                            }
+                        ],
+                        "class_share": 0.23883746114264406,
+                        "product_share": 0.3968939707510114,
+                        "calculated_total_volume": 57.12499432865436
+                    }
+                },
+                "Germany": {
+                    "overall_net_sales": 17078.443484086893,
+                    "sku_splits": null,
+                    "skus": [
+                        {
+                            "gross_price": 212.10403534688888,
+                            "gtn": 0.2614288381158267,
+                            "net_sales": 17078.443484086893
+                        }
+                    ],
+                    "sampled_values": {
+                        "events": [
+                            {
+                                "input_params": {
+                                    "dist_type": "uniform",
+                                    "low": 0.08,
+                                    "high": 0.12,
+                                    "base": 0.1,
+                                    "mean": null,
+                                    "std": null
+                                },
+                                "sampled_value": 0.11392266054004987
+                            }
+                        ],
+                        "class_share": 0.28488976752069267,
+                        "product_share": 0.30591119002475997,
+                        "calculated_total_volume": 109.02020879480038
+                    }
+                }
+            },
+            "secondary_markets": {
+                "Rest of Americas": {
+                    "overall_net_sales": 19734.28532237938,
+                    "sampled_scale_up_factor": 0.4247382974491073
+                },
+                "Rest of Europe": {
+                    "overall_net_sales": 9117.324066354038,
+                    "sampled_scale_up_factor": 0.5338498250645176
+                }
+            }
+        },

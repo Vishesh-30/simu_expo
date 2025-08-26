@@ -1,45 +1,53 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Dict
 from monte_carlo import MonteCarloSimulator
 from range_forecast import range_forecast_calc
 
 app = FastAPI()
 
+# --- Pydantic Models for API Request Structure ---
+
 class DistributionParam(BaseModel):
     dist_type: str
     low: Optional[float] = None
     high: Optional[float] = None
+    base: Optional[float] = None
     mean: Optional[float] = None
     std: Optional[float] = None
-    base: Optional[float] = None
 
-class SimulationRequest(BaseModel):
-    n_simulations: int
-    final_net_sales: float
-    event_params: List[DistributionParam]
-    class_share_param: Union[DistributionParam, List[DistributionParam]]
-    product_share_param: Union[DistributionParam, List[DistributionParam]]
+class PrimaryMarketConfig(BaseModel):
+    market_name: str
+    region: str
+    baseline_volume: float = Field(..., gt=0)
+    event_params: Optional[List[DistributionParam]] = []
+    class_share_param: DistributionParam
+    product_share_param: DistributionParam
     gross_price_param: Union[DistributionParam, List[DistributionParam]]
     gtn_param: Union[DistributionParam, List[DistributionParam]]
     sku_splits: Optional[List[float]] = None
 
+# --- MODIFIED MODEL ---
+class SecondaryMarketConfig(BaseModel):
+    """Configuration for a secondary market (simplified)."""
+    market_name: str
+    scale_up_region: str
+    scale_up_param: DistributionParam 
+
+class SimulationRequest(BaseModel):
+    n_simulations: int = Field(..., gt=0)
+    primary_market_configs: List[PrimaryMarketConfig]
+    secondary_market_configs: Optional[List[SecondaryMarketConfig]] = None
+
 @app.post("/simulate")
 async def simulate(request: SimulationRequest):
-    def convert_param(param):
-        if isinstance(param, list):
-            return [p.dict() for p in param]
-        return param.dict()
+    primary_configs = [market.dict() for market in request.primary_market_configs]
+    secondary_configs = [market.dict() for market in request.secondary_market_configs] if request.secondary_market_configs else None
     
     sim = MonteCarloSimulator(
         n_simulations=request.n_simulations,
-        final_net_sales=request.final_net_sales,
-        event_params=[param.dict() for param in request.event_params],
-        class_share_param=convert_param(request.class_share_param),
-        product_share_param=convert_param(request.product_share_param),
-        gross_price_param=convert_param(request.gross_price_param),
-        gtn_param=convert_param(request.gtn_param),
-        sku_splits=request.sku_splits if request.sku_splits else None
+        primary_market_configs=primary_configs,
+        secondary_market_configs=secondary_configs
     )
     result = sim.run()
     return result
