@@ -1,43 +1,53 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Dict
 from monte_carlo import MonteCarloSimulator
-from range_forecast import range_forecast as rf_func
+from range_forecast import range_forecast_calc
 
 app = FastAPI()
+
+# --- Pydantic Models for API Request Structure ---
 
 class DistributionParam(BaseModel):
     dist_type: str
     low: Optional[float] = None
     high: Optional[float] = None
+    base: Optional[float] = None
     mean: Optional[float] = None
     std: Optional[float] = None
-    base: Optional[float] = None
 
-class SimulationRequest(BaseModel):
-    n_simulations: int
-    final_baseline_trend: float
-    event_params: List[DistributionParam]
-    class_share_param: Union[DistributionParam, List[DistributionParam]]
-    product_share_param: Union[DistributionParam, List[DistributionParam]]
+class PrimaryMarketConfig(BaseModel):
+    market_name: str
+    region: str
+    baseline_volume: float = Field(..., gt=0)
+    event_params: Optional[List[DistributionParam]] = []
+    class_share_param: DistributionParam
+    product_share_param: DistributionParam
     gross_price_param: Union[DistributionParam, List[DistributionParam]]
     gtn_param: Union[DistributionParam, List[DistributionParam]]
+    sku_splits: Optional[List[float]] = None
+
+# --- MODIFIED MODEL ---
+class SecondaryMarketConfig(BaseModel):
+    """Configuration for a secondary market (simplified)."""
+    market_name: str
+    scale_up_region: str
+    scale_up_param: DistributionParam 
+
+class SimulationRequest(BaseModel):
+    n_simulations: int = Field(..., gt=0)
+    primary_market_configs: List[PrimaryMarketConfig]
+    secondary_market_configs: Optional[List[SecondaryMarketConfig]] = None
 
 @app.post("/simulate")
 async def simulate(request: SimulationRequest):
-    def convert_param(param):
-        if isinstance(param, list):
-            return [p.dict() for p in param]
-        return param.dict()
+    primary_configs = [market.dict() for market in request.primary_market_configs]
+    secondary_configs = [market.dict() for market in request.secondary_market_configs] if request.secondary_market_configs else None
     
     sim = MonteCarloSimulator(
         n_simulations=request.n_simulations,
-        final_baseline_trend=request.final_baseline_trend,
-        event_params=[param.dict() for param in request.event_params],
-        class_share_param=convert_param(request.class_share_param),
-        product_share_param=convert_param(request.product_share_param),
-        gross_price_param=convert_param(request.gross_price_param),
-        gtn_param=convert_param(request.gtn_param)
+        primary_market_configs=primary_configs,
+        secondary_market_configs=secondary_configs
     )
     result = sim.run()
     return result
@@ -50,7 +60,7 @@ class RangeForecastRequest(BaseModel):
 
 @app.post("/range_forecast")
 async def range_forecast(request: RangeForecastRequest):
-    range_forecasts = rf_func(request.base_peak, request.base_netsales, request.summary)
+    range_forecasts = range_forecast_calc(request.base_peak, request.base_netsales, request.summary)
     return range_forecasts
 
 
@@ -58,60 +68,43 @@ async def range_forecast(request: RangeForecastRequest):
 
 
 # Input format for the API
+
 # {
-#   "n_simulations": 10000,
-#   "final_baseline_trend": 10146472.64,        
+#   "n_simulations": 1000,
+#   "final_net_sales": 10000,
 #   "event_params": [
-#         {"dist_type": "uniform", "low": 0.10, "high": 0.15, "base": 0.12},                                  #N number of events
-#         {"dist_type": "normal", "low": 0.04, "high": 0.05, "base": 0.045},
-#         {"dist_type": "uniform", "low": -0.16, "high": -0.10, "base": -0.13},
-#         {"dist_type": "uniform", "low": 0.03, "high": 0.05, "base": 0.04}
-#     ],
-#   "class_share_param": [
-#         {"dist_type": "uniform", "low": 0.2, "high": 0.3, "base": 0.25},                                    # SKU split(only one row in case of no SKU Split)
-#         {"dist_type": "uniform", "low": 0.3, "high": 0.4, "base": 0.35}
-#     ],
-#   "product_share_param": [
-#         {"dist_type": "uniform", "low": 0.1, "high": 0.2, "base": 0.15},
-#         {"dist_type": "uniform", "low": 0.14, "high": 0.2, "base": 0.17}
-#     ],
-#   "gross_price_param": [
-#         {"dist_type": "uniform", "low": 240.63, "high": 245.63, "base": 243.13},
-#         {"dist_type": "uniform", "low": 260, "high": 280, "base": 270}
-#     ],
-#   "gtn_param": [
-#         {"dist_type": "uniform", "low": 0.05, "high": 0.06, "base": 0.055},
-#         {"dist_type": "uniform", "low": 0.05, "high": 0.08, "base": 0.065}
-#     ]
+#     {"dist_type": "uniform", "low": 0.04, "high": 0.15, "base": 0.10},
+#     {"dist_type": "uniform", "low": 0.06, "high": 0.10, "base": 0.08},
+#     {"dist_type": "uniform", "low": 0.10, "high": 0.10, "base": 0.10}
+#   ],
+#   "class_share_param": {"dist_type": "uniform", "low": 0.2, "high": 0.8, "base": 0.3},
+#   "product_share_param": {"dist_type": "uniform", "low": 0.4, "high": 0.5, "base": 0.3},
+#   "gross_price_param": {"dist_type": "uniform", "low": 200, "high": 200, "base": 200},
+#   "gtn_param": {"dist_type": "uniform", "low": 0.1, "high": 0.3, "base": 0.2}
 # }
 
 
-
-# Output format:
 # {
-#     "summary": {
-#         "mean": 249330220.03,
-#         "median": 253284240.73,
-#         "std": 10108038.28,
-#         "p5": 234853058.27,
-#         "p10": 236916556.28,
-#         "p25": 243107050.3,
-#         "p50": 253284240.73,
-#         "p75": 257002757.7,
-#         "p90": 259081597.78,
-#         "p95": 259774544.47,
-#         "n_simulations": 10000,
-#     },
-#     "all_results": [
-#         232789560.27,             We can plot histogram using this data
-#         257002757.7,
-#         260467491.17,
-#         243107050.3,
-#         253284240.73
-#         ...
-#
-#     ]
+#   "n_simulations": 1000,
+#   "final_net_sales": 10000,
+#   "event_params": [
+#     {"dist_type": "normal", "low": 0.04, "high": 0.15, "base": 0.10},
+#     {"dist_type": "uniform", "low": 0.06, "high": 0.10, "base": 0.08},
+#     {"dist_type": "uniform", "low": 0.10, "high": 0.10, "base": 0.10}
+#   ],
+#   "class_share_param": {"dist_type": "uniform", "low": 0.2, "high": 0.8, "base": 0.3},
+#   "product_share_param": {"dist_type": "uniform", "low": 0.4, "high": 0.5, "base": 0.3},
+#   "sku_splits": [0.3, 0.7],
+#   "gross_price_param": [
+#     {"dist_type": "uniform", "low": 180, "high": 220, "base": 200},
+#     {"dist_type": "uniform", "low": 150, "high": 250, "base": 200}
+#   ],
+#   "gtn_param": [
+#     {"dist_type": "uniform", "low": 0.1, "high": 0.2, "base": 0.15},
+#     {"dist_type": "uniform", "low": 0.2, "high": 0.3, "base": 0.25}
+#   ]
 # }
+
 
 
 # distribution_params = {
@@ -120,4 +113,41 @@ async def range_forecast(request: RangeForecastRequest):
 #     "triangular": ["low", "high", "mode"],
 #     "discrete_uniform": ["low", "mode", "high"], # define probab
 #     "beta_pert": ["low", "high", "mode"],
+# }
+
+
+# {
+#   "base_peak": 1500,
+#   "base_netsales": [1000, 1050, 1100, 1200, 1300, 1250, 1400, 1350, 1450, 1500],
+#   "summary": {
+#     "p5": 1020.0,
+#     "p10": 1111.0,
+#     "p25": 1200.0,
+#     "p50": 1300.0,
+#     "p75": 1400.0,
+#     "p90": 1450.0,
+#     "p95": 1480.0
+#   }
+# }
+
+
+# {
+# "n_simulations": 1000,
+# "final_net_sales": 10000,
+# "event_params": [
+# {"dist_type": "normal", "low": 0.04, "high": 0.04, "base": 0.04},
+# {"dist_type": "uniform", "low": 0.04, "high": 0.04, "base": 0.04},
+# {"dist_type": "uniform", "low": 0.04, "high": 0.04, "base": 0.04}
+# ],
+# "class_share_param":{"dist_type":"uniform","low":0.2,"high":0.2,"base":0.2},
+# "product_share_param":{"dist_type":"uniform","low":0.5,"high":0.5,"base":0.5},
+# "sku_splits":[0.3,0.7],
+# "gross_price_param":[
+# {"dist_type":"uniform","low":200,"high":200,"base":200},
+# {"dist_type":"uniform","low":250,"high":250,"base":250}
+# ],
+# "gtn_param":[
+# {"dist_type":"uniform","low":0.2,"high":0.2,"base":0.2},
+# {"dist_type":"uniform","low":0.2,"high":0.2,"base":0.2}
+# ]
 # }
